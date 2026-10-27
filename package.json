@@ -1,0 +1,9 @@
+{
+  "name": "nexgen-sim-api",
+  "version": "1.0.0",
+  "description": "Multi-Source Lookup API by NexGen-Tech-PK",
+  "type": "module",
+  "engines": {
+    "node": ">=18.x"
+  }
+}
