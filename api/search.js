@@ -21,32 +21,13 @@ export default async function handler(req, res) {
     `https://wasifali-sim-info.netlify.app/api/search?phone=${number}`
   ];
 
-  // Yeh function dusri API ka naam aur links delete kar dega
-  function cleanBranding(obj) {
-    if (Array.isArray(obj)) {
-      return obj.map(cleanBranding);
-    } else if (obj !== null && typeof obj === 'object') {
-      const cleaned = {};
-      // 'group' aur 'success' ko bhi block list mein daal diya hai taake extra text na aaye
-      const blockedKeys = ['developer', 'dev', 'owner', 'api_owner', 'credit', 'credits', 'author', 'powered_by', 'channel', 'telegram', 'by', 'group', 'success', 'query_type', 'total_numbers_found'];
-      
-      for (const [key, value] of Object.entries(obj)) {
-        if (!blockedKeys.includes(key.toLowerCase())) {
-          cleaned[key] = cleanBranding(value);
-        }
-      }
-      return cleaned;
-    }
-    return obj;
-  }
-
   for (let url of endpoints) {
     try {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
-          'Accept': 'application/json, text/plain, */*'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json'
         }
       });
 
@@ -56,9 +37,37 @@ export default async function handler(req, res) {
 
       if (response.ok && textData.length > 15 && !isInvalid) {
         try {
-          const jsonData = JSON.parse(textData);
-          const finalData = cleanBranding(jsonData); // Data ko saaf kiya gaya hai
+          let jsonData = JSON.parse(textData);
+
+          // 1. WhatsApp link ko CNIC se replace karne ki logic
+          if (jsonData.sim_data && Array.isArray(jsonData.sim_data)) {
+            jsonData.sim_data = jsonData.sim_data.map(item => {
+              if (item.cnic && item.cnic.includes("http")) {
+                item.cnic = jsonData.extracted_cnic || "";
+              }
+              return item;
+            });
+          }
+
+          // 2. Extra branding keys ko delete karne ki logic
+          const blockedKeys = ['developer', 'dev', 'owner', 'api_owner', 'credit', 'credits', 'author', 'powered_by', 'channel', 'telegram', 'by', 'group', 'success', 'query_type', 'total_numbers_found'];
           
+          function deepClean(obj) {
+            if (Array.isArray(obj)) return obj.map(deepClean);
+            if (obj !== null && typeof obj === 'object') {
+              const cleaned = {};
+              for (const [k, v] of Object.entries(obj)) {
+                if (!blockedKeys.includes(k.toLowerCase())) {
+                  cleaned[k] = deepClean(v);
+                }
+              }
+              return cleaned;
+            }
+            return obj;
+          }
+
+          const finalData = deepClean(jsonData);
+
           return res.status(200).json({
             status: "success",
             Developer: "NexGen-Tech-PK",
@@ -66,11 +75,11 @@ export default async function handler(req, res) {
             result: finalData
           });
         } catch (e) {
-          // JSON parse fail ho toh ignore karo
+          // JSON parse fail hone par agle endpoint par jaye
         }
       }
     } catch (error) {
-      // Fetch fail ho toh aage badho
+      // Fetch fail hone par agle endpoint par jaye
     }
   }
 
@@ -80,5 +89,5 @@ export default async function handler(req, res) {
     query: cleanInput,
     message: "Data not found in any of the backend servers."
   });
-      }
-                           
+              }
+        
